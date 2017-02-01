@@ -12,9 +12,12 @@ using System.Threading;
 
 namespace Microsoft.AspNetCore.Sockets.Client
 {
-    public class Connection : IChannelConnection<Message>
+    public class Connection: IDisposable
     {
         private IChannelConnection<Message> _transportChannel;
+        private ReadableChannel<Message> Input => _transportChannel.Input;
+        private WritableChannel<Message> Output => _transportChannel.Output;
+
         private ITransport _transport;
         private readonly ILogger _logger;
 
@@ -29,15 +32,8 @@ namespace Microsoft.AspNetCore.Sockets.Client
             _transport = transport;
             _transportChannel = transportChannel;
 
+            var _ = ReceiveMessages();
             _transportChannel.Input.Completion.ContinueWith(t => Closed(t.Exception.InnerException));
-        }
-
-        public ReadableChannel<Message> Input => _transportChannel.Input;
-        public WritableChannel<Message> Output => _transportChannel.Output;
-
-        public void Dispose()
-        {
-            _transport.Dispose();
         }
 
         public static Task<Connection> ConnectAsync(Uri url, ITransport transport) => ConnectAsync(url, transport, new HttpClient(), NullLoggerFactory.Instance);
@@ -141,7 +137,7 @@ namespace Microsoft.AspNetCore.Sockets.Client
             while (await Output.WaitToWriteAsync())
             {
                 var message = new Message(ReadableBuffer.Create(data).Preserve(), Format.Text, endOfMessage: true);
-                if (!Output.TryWrite(message))
+                if (Output.TryWrite(message))
                 {
                     break;
                 }
@@ -151,7 +147,12 @@ namespace Microsoft.AspNetCore.Sockets.Client
 
         public void Stop()
         {
-            Output.TryComplete();
+            _transport.Dispose();
+        }
+
+        public void Dispose()
+        {
+            Stop();
         }
 
         public event Action<byte[], Format> Received;

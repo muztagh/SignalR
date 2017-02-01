@@ -56,6 +56,9 @@ namespace Microsoft.AspNetCore.SignalR.Tests
         [Fact]
         public async Task ConnectionCanSendAndReceiveMessages()
         {
+            Console.WriteLine("Process Id: " + System.Diagnostics.Process.GetCurrentProcess().Id);
+            Console.ReadLine();
+
             const string message = "Major Key";
             var baseUrl = _serverFixture.BaseUrl;
             var loggerFactory = new LoggerFactory();
@@ -65,31 +68,13 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                 var transport = new LongPollingTransport(httpClient, loggerFactory);
                 using (var connection = await ClientConnection.ConnectAsync(new Uri(baseUrl + "/echo"), transport, httpClient, loggerFactory))
                 {
-                    await connection.Output.WriteAsync(new Message(
-                        ReadableBuffer.Create(Encoding.UTF8.GetBytes(message)).Preserve(),
-                        Format.Text));
+                    var received = new TaskCompletionSource<string>();
+                    connection.Received += (data, format) => { received.SetResult(Encoding.UTF8.GetString(data)); };
+                    await connection.Send(Encoding.UTF8.GetBytes(message));
 
-                    var received = await ReceiveMessage(connection).OrTimeout();
-                    Assert.Equal(message, received);
+                    Assert.Equal(message, await received.Task.OrTimeout());
                 }
             }
-        }
-
-        private static async Task<string> ReceiveMessage(ClientConnection connection)
-        {
-            Message message;
-            while (await connection.Input.WaitToReadAsync())
-            {
-                if (connection.Input.TryRead(out message))
-                {
-                    using (message)
-                    {
-                        return Encoding.UTF8.GetString(message.Payload.Buffer.ToArray());
-                    }
-                }
-            }
-
-            return null;
         }
     }
 }

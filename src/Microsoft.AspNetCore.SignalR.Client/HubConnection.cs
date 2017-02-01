@@ -6,12 +6,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Pipelines;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Sockets;
 using Microsoft.AspNetCore.Sockets.Client;
 using Microsoft.Extensions.Logging;
 
@@ -19,7 +17,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
 {
     public class HubConnection : IDisposable
     {
-        private readonly Task _reader;
+        // private readonly Task _reader;
         private readonly ILogger _logger;
         private readonly Connection _connection;
         private readonly IInvocationAdapter _adapter;
@@ -45,8 +43,10 @@ namespace Microsoft.AspNetCore.SignalR.Client
             _adapter = adapter;
             _logger = logger;
 
-            _reader = ReceiveMessages(_readerCts.Token);
-            Completion = _connection.Input.Completion.ContinueWith(t => Shutdown(t)).Unwrap();
+            // TODO:
+            //_reader = ReceiveMessages(_readerCts.Token);
+            // TODO: Closed
+            // Completion = _connection.Input.Completion.ContinueWith(t => Shutdown(t)).Unwrap();
         }
 
         // TODO: Client return values/tasks?
@@ -102,14 +102,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
             _logger.LogInformation("Sending Invocation #{0}", descriptor.Id);
 
             // TODO: Format.Text - who, where and when decides about the format of outgoing messages
-            var message = new Message(ReadableBuffer.Create(ms.ToArray()).Preserve(), Format.Text);
-            while (await _connection.Output.WaitToWriteAsync())
-            {
-                if (_connection.Output.TryWrite(message))
-                {
-                    break;
-                }
-            }
+            await _connection.Send(ms.ToArray());
 
             _logger.LogInformation("Sending Invocation #{0} complete", descriptor.Id);
 
@@ -135,6 +128,8 @@ namespace Microsoft.AspNetCore.SignalR.Client
             return new HubConnection(connection, adapter, loggerFactory.CreateLogger<HubConnection>());
         }
 
+
+        /*
         private async Task ReceiveMessages(CancellationToken cancellationToken)
         {
             await Task.Yield();
@@ -183,6 +178,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
                 _logger.LogTrace("Ending receive loop");
             }
         }
+        */
 
         private Task Shutdown(Task completion)
         {
