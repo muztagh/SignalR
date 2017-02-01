@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Sockets.Internal;
+using System.IO.Pipelines;
+using System.Threading;
 
 namespace Microsoft.AspNetCore.Sockets.Client
 {
@@ -26,6 +28,8 @@ namespace Microsoft.AspNetCore.Sockets.Client
             _logger = logger;
             _transport = transport;
             _transportChannel = transportChannel;
+
+            _transportChannel.Input.Completion.ContinueWith(t => Closed(t.Exception.InnerException));
         }
 
         public ReadableChannel<Message> Input => _transportChannel.Input;
@@ -101,5 +105,56 @@ namespace Microsoft.AspNetCore.Sockets.Client
             // Create the connection, giving it the other end of the pipeline
             return new Connection(url, transport, transportSide, logger);
         }
+
+        private async Task ReceiveMessages()
+        {
+            try
+            {
+                while (await Input.WaitToReadAsync())
+                {
+                    Message message;
+                    while (Input.TryRead(out message))
+                    {
+                        using (message)
+                        {
+                            // TODO: pass format to the caller?
+                            Received(message.Payload.Buffer.ToArray(), message.MessageFormat);
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // channel closed
+            }
+        }
+
+        // TODO: Format? string vs. byte overload, parameter, something else?
+        // TODO: take cancellation token?
+        public async Task Send(byte[] data)
+        {
+            if (Input.Completion.IsCompleted)
+            {
+                throw new InvalidOperationException("Cannot send messages if the connection is disconected");
+            }
+
+            while (await Output.WaitToWriteAsync())
+            {
+                var message = new Message(ReadableBuffer.Create(data).Preserve(), Format.Text, endOfMessage: true);
+                if (!Output.TryWrite(message))
+                {
+                    break;
+                }
+            }
+            // TODO: OperationCanceled exception bubbles up. Should be caught? What if cancellation toke was passed?
+        }
+
+        public void Stop()
+        {
+            Output.TryComplete();
+        }
+
+        public event Action<byte[], Format> Received;
+        public event Action<Exception> Closed;
     }
 }
