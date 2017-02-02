@@ -12,6 +12,12 @@ namespace Microsoft.AspNetCore.Sockets
         public MessageType Type { get; }
         public PreservedBuffer Payload { get; }
 
+        public Message(PreservedBuffer payload, MessageType type) 
+            : this(payload, type, endOfMessage: true)
+        {
+
+        }
+
         public Message(PreservedBuffer payload, MessageType type, bool endOfMessage)
         {
             Type = type;

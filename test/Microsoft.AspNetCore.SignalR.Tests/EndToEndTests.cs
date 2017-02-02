@@ -67,7 +67,7 @@ namespace Microsoft.AspNetCore.SignalR.Tests
                 {
                     await connection.Output.WriteAsync(new Message(
                         ReadableBuffer.Create(Encoding.UTF8.GetBytes(message)).Preserve(),
-                        Format.Text));
+                        MessageType.Text));
 
                     var received = await ReceiveMessage(connection).OrTimeout();
                     Assert.Equal(message, received);

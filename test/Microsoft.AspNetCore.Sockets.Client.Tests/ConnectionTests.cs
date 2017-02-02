@@ -91,7 +91,7 @@ namespace Microsoft.AspNetCore.Sockets.Client.Tests
 
                 var data = new byte[] { 1, 1, 2, 3, 5, 8 };
                 connection.Output.TryWrite(
-                    new Message(ReadableBuffer.Create(data).Preserve(), Format.Binary));
+                    new Message(ReadableBuffer.Create(data).Preserve(), MessageType.Binary));
 
                 Assert.Equal(sendTcs.Task, await Task.WhenAny(Task.Delay(1000), sendTcs.Task));
                 Assert.Equal(data, sendTcs.Task.Result);

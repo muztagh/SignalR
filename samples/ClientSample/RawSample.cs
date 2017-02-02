@@ -64,7 +64,7 @@ namespace ClientSample
 
                 await connection.Output.WriteAsync(new Message(
                     ReadableBuffer.Create(Encoding.UTF8.GetBytes("Hello World")).Preserve(),
-                    Format.Text));
+                    MessageType.Text));
             }
             logger.LogInformation("Send loop terminated");
         }

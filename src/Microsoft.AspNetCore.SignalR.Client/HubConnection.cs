@@ -102,7 +102,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
             _logger.LogInformation("Sending Invocation #{0}", descriptor.Id);
 
             // TODO: Format.Text - who, where and when decides about the format of outgoing messages
-            var message = new Message(ReadableBuffer.Create(ms.ToArray()).Preserve(), Format.Text);
+            var message = new Message(ReadableBuffer.Create(ms.ToArray()).Preserve(), MessageType.Text);
             while (await _connection.Output.WaitToWriteAsync())
             {
                 if (_connection.Output.TryWrite(message))
